@@ -1,26 +1,73 @@
 @import "tailwindcss";
+@config "../tailwind.config.ts";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: 249 248 246; /* #F9F8F6 - Warm Alabaster */
+    --foreground: 26 26 26; /* #1A1A1A - Rich Charcoal */
+    
+    --muted: 235 229 222; /* #EBE5DE - Pale Taupe */
+    --muted-foreground: 108 104 99; /* #6C6863 - Warm Grey */
+    
+    --accent: 212 175 55; /* #D4AF37 - Metallic Gold */
+    --accent-foreground: 255 255 255;
+    
+    --border: 26 26 26;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Base resets & utilities */
+@layer base {
+  body {
+    background-color: rgb(var(--background));
+    color: rgb(var(--foreground));
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+  }
+
+  /* Typography Overrides */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif font-normal text-foreground;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Custom Utilities */
+@layer utilities {
+  .vertical-rl {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Text Glows */
+  .text-glow {
+    text-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+  }
+  
+  /* Image Grayscale to Color Transition */
+  .grayscale-transition {
+    filter: grayscale(100%);
+    transition: filter 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  
+  .grayscale-transition:hover {
+    filter: grayscale(0%);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-foreground/20;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-accent;
 }
