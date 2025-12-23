@@ -19,9 +19,9 @@ type Props = {
 
 const fadeVariant = {
   hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
   exit: { opacity: 0, y: -20, transition: { duration: 0.4 } }
-}
+} as const
 
 export default function BookingWizard({ barbers, services }: Props) {
   const router = useRouter()
@@ -36,7 +36,7 @@ export default function BookingWizard({ barbers, services }: Props) {
   const [slots, setSlots] = useState<TimeSlot[]>([])
   const [selectedTime, setSelectedTime] = useState<string>('')
   const [isPriority, setIsPriority] = useState(false)
-  
+
   // Customer Info
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
@@ -74,7 +74,7 @@ export default function BookingWizard({ barbers, services }: Props) {
       setError('Protocol incomplete. All fields are mandatory.')
       return
     }
-    
+
     setLoading(true)
     try {
       await createAppointment({
@@ -103,7 +103,7 @@ export default function BookingWizard({ barbers, services }: Props) {
       <div className="absolute inset-0 bg-white/60 backdrop-blur-3xl border border-foreground/5 z-0 shadow-lifted overflow-hidden rounded-3xl">
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center opacity-5 mix-blend-multiply grayscale"></div>
       </div>
-      
+
       <div className="relative z-10 p-8 md:p-16">
         {/* Header */}
         <div className="mb-12 flex justify-between items-end border-b border-foreground/10 pb-6">
@@ -117,9 +117,9 @@ export default function BookingWizard({ barbers, services }: Props) {
             </h2>
           </div>
           {step > 1 && (
-            <Button 
-              variant="ghost" 
-              onClick={() => setStep(step - 1)} 
+            <Button
+              variant="ghost"
+              onClick={() => setStep(step - 1)}
               className="text-muted-foreground hover:text-foreground pl-0"
             >
               <ArrowLeft size={14} className="mr-2" />
@@ -129,7 +129,7 @@ export default function BookingWizard({ barbers, services }: Props) {
         </div>
 
         {error && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             className="flex items-center gap-3 text-red-600 bg-red-50 border border-red-200 p-4 mb-8 font-mono text-xs uppercase tracking-wide"
@@ -140,35 +140,34 @@ export default function BookingWizard({ barbers, services }: Props) {
         )}
 
         <AnimatePresence mode="wait">
-          
+
           {/* STEP 1: BARBER */}
           {step === 1 && (
-            <motion.div 
-              key="step1" 
-              variants={fadeVariant} 
-              initial="hidden" 
-              animate="visible" 
+            <motion.div
+              key="step1"
+              variants={fadeVariant}
+              initial="hidden"
+              animate="visible"
               exit="exit"
               className="grid grid-cols-1 md:grid-cols-3 gap-8"
             >
               {barbers.map((b, i) => (
-                <div 
+                <div
                   key={b.id}
                   onClick={() => { setSelectedBarber(b); setStep(2) }}
                   className="group relative h-[420px] cursor-pointer overflow-hidden border-t border-foreground bg-transparent transition-all duration-700 hover:bg-white/60"
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 z-10"></div>
-                  
+
                   {/* Barber Image Background */}
-                  <div 
-                     className="absolute inset-0 bg-cover bg-center transition-all duration-[2000ms] grayscale group-hover:grayscale-0 group-hover:scale-105 opacity-20 group-hover:opacity-40"
-                     style={{ 
-                       backgroundImage: `url(${
-                         i === 0 ? 'https://images.unsplash.com/photo-1618077360395-f3068be8e001?q=80&w=800&auto=format&fit=crop' : 
-                         i === 1 ? 'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?q=80&w=800&auto=format&fit=crop' : 
-                         'https://images.unsplash.com/photo-1521119989659-a83eee488058?q=80&w=800&auto=format&fit=crop'
-                       })` 
-                     }}
+                  <div
+                    className="absolute inset-0 bg-cover bg-center transition-all duration-[2000ms] grayscale group-hover:grayscale-0 group-hover:scale-105 opacity-20 group-hover:opacity-40"
+                    style={{
+                      backgroundImage: `url(${i === 0 ? 'https://images.unsplash.com/photo-1618077360395-f3068be8e001?q=80&w=800&auto=format&fit=crop' :
+                        i === 1 ? 'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?q=80&w=800&auto=format&fit=crop' :
+                          'https://images.unsplash.com/photo-1521119989659-a83eee488058?q=80&w=800&auto=format&fit=crop'
+                        })`
+                    }}
                   ></div>
 
                   {/* Vertical Label */}
@@ -188,11 +187,11 @@ export default function BookingWizard({ barbers, services }: Props) {
 
           {/* STEP 2: SERVICE */}
           {step === 2 && (
-            <motion.div 
-              key="step2" 
-              variants={fadeVariant} 
-              initial="hidden" 
-              animate="visible" 
+            <motion.div
+              key="step2"
+              variants={fadeVariant}
+              initial="hidden"
+              animate="visible"
               exit="exit"
               className="space-y-4"
             >
@@ -216,17 +215,17 @@ export default function BookingWizard({ barbers, services }: Props) {
 
           {/* STEP 3: DATE & TIME */}
           {step === 3 && (
-            <motion.div 
-              key="step3" 
-              variants={fadeVariant} 
-              initial="hidden" 
-              animate="visible" 
+            <motion.div
+              key="step3"
+              variants={fadeVariant}
+              initial="hidden"
+              animate="visible"
               exit="exit"
             >
               <div className="mb-12 max-w-md">
                 <label className="block font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-4">Select Date</label>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   className="w-full bg-transparent border-b border-foreground text-4xl md:text-5xl font-serif text-foreground py-4 focus:outline-none focus:border-accent transition-colors placeholder-muted-foreground/30"
                   onChange={(e) => setDate(e.target.value)}
                   min={format(new Date(), 'yyyy-MM-dd')}
@@ -253,11 +252,11 @@ export default function BookingWizard({ barbers, services }: Props) {
                           disabled={!slot.available && !slot.isPriorityEligible}
                           className={cn(
                             "relative py-4 font-mono text-xs border transition-all duration-300",
-                            selectedTime === slot.time 
-                              ? "bg-foreground border-foreground text-white" 
-                              : slot.available 
+                            selectedTime === slot.time
+                              ? "bg-foreground border-foreground text-white"
+                              : slot.available
                                 ? "border-foreground/20 text-muted-foreground hover:border-accent hover:text-foreground"
-                                : slot.isPriorityEligible 
+                                : slot.isPriorityEligible
                                   ? "border-red-200 text-red-700 cursor-pointer hover:bg-red-50 hover:border-red-300"
                                   : "border-transparent text-muted-foreground/30 cursor-not-allowed decoration-slice line-through"
                           )}
@@ -274,12 +273,12 @@ export default function BookingWizard({ barbers, services }: Props) {
               )}
 
               {selectedTime && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="mt-16 flex justify-end"
                 >
-                  <Button 
+                  <Button
                     onClick={() => setStep(4)}
                     size="lg"
                   >
@@ -292,11 +291,11 @@ export default function BookingWizard({ barbers, services }: Props) {
 
           {/* STEP 4: CONFIRM */}
           {step === 4 && (
-            <motion.div 
-              key="step4" 
-              variants={fadeVariant} 
-              initial="hidden" 
-              animate="visible" 
+            <motion.div
+              key="step4"
+              variants={fadeVariant}
+              initial="hidden"
+              animate="visible"
               exit="exit"
               className="grid md:grid-cols-2 gap-16"
             >
@@ -306,7 +305,7 @@ export default function BookingWizard({ barbers, services }: Props) {
                   <h3 className="font-serif text-2xl text-foreground tracking-tight italic">Confirmation</h3>
                   <div className="w-full h-px bg-foreground/10 mt-6"></div>
                 </div>
-                
+
                 <div className="space-y-6 font-mono text-xs tracking-wide text-muted-foreground">
                   <div className="flex justify-between items-baseline">
                     <span className="uppercase tracking-[0.2em]">Architect</span>
@@ -334,42 +333,42 @@ export default function BookingWizard({ barbers, services }: Props) {
 
                 <div className="mt-10 pt-6 border-t border-foreground flex justify-between items-baseline">
                   <span className="font-mono text-xs uppercase tracking-[0.2em]">Total</span>
-                  <span className="font-serif text-3xl text-foreground">${ (selectedService?.price || 0) + (isPriority ? 15 : 0) }</span>
+                  <span className="font-serif text-3xl text-foreground">${(selectedService?.price || 0) + (isPriority ? 15 : 0)}</span>
                 </div>
               </div>
 
               {/* Form */}
               <div className="space-y-10 flex flex-col justify-center">
-                 <div className="space-y-8">
-                   <div>
-                      <label className="block font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em] mb-3">Client Identification</label>
-                      <Input 
-                        placeholder="Full Name"
-                        value={customerName}
-                        onChange={e => setCustomerName(e.target.value)}
-                        className="text-xl py-4 h-auto font-serif"
-                      />
-                   </div>
-                   <div>
-                      <label className="block font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em] mb-3">Comms Frequency</label>
-                      <Input 
-                        placeholder="Phone Number"
-                        value={customerPhone}
-                        onChange={e => setCustomerPhone(e.target.value)}
-                        className="text-xl py-4 h-auto font-serif"
-                      />
-                   </div>
-                 </div>
+                <div className="space-y-8">
+                  <div>
+                    <label className="block font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em] mb-3">Client Identification</label>
+                    <Input
+                      placeholder="Full Name"
+                      value={customerName}
+                      onChange={e => setCustomerName(e.target.value)}
+                      className="text-xl py-4 h-auto font-serif"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em] mb-3">Comms Frequency</label>
+                    <Input
+                      placeholder="Phone Number"
+                      value={customerPhone}
+                      onChange={e => setCustomerPhone(e.target.value)}
+                      className="text-xl py-4 h-auto font-serif"
+                    />
+                  </div>
+                </div>
 
-                 <Button 
-                   onClick={handleSubmit}
-                   disabled={loading}
-                   size="lg"
-                   className="w-full mt-4"
-                 >
-                   {loading ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" size={16} />}
-                   {loading ? 'Processing...' : 'Confirm Appointment'}
-                 </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  size="lg"
+                  className="w-full mt-4"
+                >
+                  {loading ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" size={16} />}
+                  {loading ? 'Processing...' : 'Confirm Appointment'}
+                </Button>
               </div>
             </motion.div>
           )}

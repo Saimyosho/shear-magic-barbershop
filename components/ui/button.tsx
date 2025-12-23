@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group relative inline-flex items-center justify-center whitespace-nowrap text-xs font-medium uppercase tracking-[0.2em] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground disabled:pointer-events-none disabled:opacity-50 overflow-hidden",
+  "group relative inline-flex items-center justify-center whitespace-nowrap text-xs font-medium uppercase tracking-[0.2em] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 overflow-hidden",
   {
     variants: {
       variant: {
@@ -30,7 +30,7 @@ const buttonVariants = cva(
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  VariantProps<typeof buttonVariants> {
   asChild?: boolean
 }
 
@@ -46,7 +46,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {variant === 'default' && (
           <span className="absolute inset-0 translate-x-[-101%] bg-accent transition-transform duration-500 ease-luxury group-hover:translate-x-0" />
         )}
-        
+
         {/* Dark overlay animation for outline variant */}
         {variant === 'outline' && (
           <span className="absolute inset-0 translate-x-[-101%] bg-foreground transition-transform duration-500 ease-luxury group-hover:translate-x-0" />

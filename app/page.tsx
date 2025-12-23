@@ -1,11 +1,21 @@
-import { getBarbers, getServices } from '@/app/actions'
-import LandingPage from '@/app/components/LandingPage'
+import HeroSection from "@/components/hero-section";
+import AboutSection from "@/components/about-section";
+import ContactSection from "@/components/contact-section";
+import ServicesSection from "@/components/services-section";
+import GallerySection from "@/components/gallery-section";
 
-export const dynamic = 'force-dynamic'
+export default function Home() {
+  return (
+    <main className="min-h-screen bg-background text-foreground flex flex-col selection:bg-accent selection:text-black">
+      <HeroSection />
 
-export default async function Home() {
-  const barbers = await getBarbers()
-  const services = await getServices()
+      <AboutSection />
 
-  return <LandingPage barbers={barbers} services={services} />
+      <ServicesSection />
+
+      <GallerySection />
+
+      <ContactSection />
+    </main>
+  );
 }

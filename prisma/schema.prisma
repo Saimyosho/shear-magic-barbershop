@@ -4,17 +4,21 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db"
 }
 
 model Barber {
-  id           Int           @id @default(autoincrement())
-  name         String
-  title        String
-  bio          String?
-  imageUrl     String?
-  appointments Appointment[]
-  schedules    Schedule[]
+  id             Int              @id @default(autoincrement())
+  name           String
+  title          String
+  bio            String?
+  imageUrl       String?
+  email          String?
+  appointments   Appointment[]
+  schedules      Schedule[]
+  dateExceptions DateException[]
+  user           User?            @relation(fields: [userId], references: [id])
+  userId         Int?             @unique
 }
 
 model Service {
@@ -37,9 +41,10 @@ model Appointment {
   customerName  String
   customerPhone String
   customerEmail String?
-  status        String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED, DENIED
+  status        String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED, BLOCKED
   isPriority    Boolean  @default(false)
   totalPrice    Float
+  notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -56,8 +61,21 @@ model Schedule {
   @@unique([barberId, dayOfWeek])
 }
 
+// Blocked dates (vacations, sick days, etc.)
+model DateException {
+  id        Int      @id @default(autoincrement())
+  barberId  Int
+  barber    Barber   @relation(fields: [barberId], references: [id])
+  date      DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@unique([barberId, date])
+}
+
 model User {
-  id       Int    @id @default(autoincrement())
-  username String @unique
+  id       Int     @id @default(autoincrement())
+  username String  @unique
   password String
+  barber   Barber?
 }

@@ -1,11 +1,22 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { startOfDay, endOfDay, addMinutes, format, parse, isBefore, isEqual } from 'date-fns'
+import { startOfDay, endOfDay, addMinutes, format, parse, isBefore } from 'date-fns'
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
+
+// ============ PUBLIC ACTIONS ============
 
 export async function getBarbers() {
-  return await prisma.barber.findMany()
+  return await prisma.barber.findMany({
+    select: {
+      id: true,
+      name: true,
+      title: true,
+      bio: true,
+      imageUrl: true,
+    }
+  })
 }
 
 export async function getServices() {
@@ -13,29 +24,40 @@ export async function getServices() {
 }
 
 export type TimeSlot = {
-  time: string // "10:00"
+  time: string
   available: boolean
-  isPriorityEligible: boolean // If booked, can we squeeze in?
+  isPriorityEligible: boolean
 }
 
 export async function getAvailability(barberId: number, dateStr: string): Promise<TimeSlot[]> {
-  // dateStr expected in "YYYY-MM-DD"
   const date = new Date(dateStr)
-  const dayOfWeek = date.getDay() // 0=Sun, 1=Mon...
+  const dayOfWeek = date.getDay()
 
   // 1. Get Schedule
   const schedule = await prisma.schedule.findFirst({
-    where: {
-      barberId,
-      dayOfWeek,
-    },
+    where: { barberId, dayOfWeek },
   })
 
   if (!schedule || !schedule.isWorking) {
-    return [] // Closed
+    return []
   }
 
-  // 2. Get Existing Appointments (Confirmed or Pending)
+  // 2. Check for date exceptions (blocked dates)
+  const dateException = await prisma.dateException.findFirst({
+    where: {
+      barberId,
+      date: {
+        gte: startOfDay(date),
+        lt: endOfDay(date),
+      },
+    },
+  })
+
+  if (dateException) {
+    return [] // Barber is unavailable this day
+  }
+
+  // 3. Get existing appointments
   const appointments = await prisma.appointment.findMany({
     where: {
       barberId,
@@ -43,32 +65,26 @@ export async function getAvailability(barberId: number, dateStr: string): Promis
         gte: startOfDay(date),
         lt: endOfDay(date),
       },
-      status: {
-        notIn: ['CANCELLED', 'DENIED'],
-      },
+      status: { notIn: ['CANCELLED', 'DENIED'] },
     },
   })
 
-  // 3. Generate Slots
+  // 4. Generate slots
   const slots: TimeSlot[] = []
-  
   const start = parse(schedule.startTime, 'HH:mm', date)
   const end = parse(schedule.endTime, 'HH:mm', date)
 
   let current = start
   while (isBefore(current, end)) {
     const timeString = format(current, 'HH:mm')
-    
-    // Check collision
-    const isBooked = appointments.some(appt => {
-      const apptStart = format(appt.startTime, 'HH:mm')
-      return apptStart === timeString
-    })
+    const isBooked = appointments.some(appt =>
+      format(appt.startTime, 'HH:mm') === timeString
+    )
 
     slots.push({
       time: timeString,
       available: !isBooked,
-      isPriorityEligible: isBooked, // If booked, it's eligible for priority squeeze
+      isPriorityEligible: isBooked,
     })
 
     current = addMinutes(current, 30)
@@ -80,27 +96,24 @@ export async function getAvailability(barberId: number, dateStr: string): Promis
 export async function createAppointment(data: {
   barberId: number
   serviceId: number
-  dateStr: string // YYYY-MM-DD
-  timeStr: string // HH:mm
+  dateStr: string
+  timeStr: string
   customerName: string
   customerPhone: string
+  customerEmail?: string
   isPriority: boolean
 }) {
-  const { barberId, serviceId, dateStr, timeStr, customerName, customerPhone, isPriority } = data
-  
-  // Calculate start and end
+  const { barberId, serviceId, dateStr, timeStr, customerName, customerPhone, customerEmail, isPriority } = data
+
   const start = parse(`${dateStr} ${timeStr}`, 'yyyy-MM-dd HH:mm', new Date())
-  
+
   const service = await prisma.service.findUnique({ where: { id: serviceId } })
   if (!service) throw new Error('Service not found')
 
   const end = addMinutes(start, service.duration)
-  
-  // Calculate Price
+
   let totalPrice = service.price
-  if (isPriority) {
-    totalPrice += 15 // Priority Fee
-  }
+  if (isPriority) totalPrice += 15
 
   const appointment = await prisma.appointment.create({
     data: {
@@ -110,30 +123,179 @@ export async function createAppointment(data: {
       endTime: end,
       customerName,
       customerPhone,
+      customerEmail,
       isPriority,
       totalPrice,
-      status: 'PENDING' // Now defaults to PENDING
-    }
+      status: 'PENDING'
+    },
+    include: { barber: true, service: true }
   })
 
-  // Send Notification Stub
-  await sendSMSNotification(appointment.id, barberId, customerName, `${dateStr} @ ${timeStr}`)
-  
+  // Send notifications (console stub)
+  await sendNotification(appointment)
+
   return appointment
 }
 
-// Stub for SMS Notification
-async function sendSMSNotification(apptId: number, barberId: number, customerName: string, time: string) {
-    // In a real app, you would look up the barber's phone number and use Twilio/AWS SNS
-    const barber = await prisma.barber.findUnique({ where: { id: barberId } })
-    console.log(`[SMS STUB] To Barber (${barber?.name}): New Appointment Request from ${customerName} at ${time}. Status: PENDING.`)
+async function sendNotification(appointment: any) {
+  console.log('='.repeat(50))
+  console.log('📧 EMAIL NOTIFICATION (STUB)')
+  console.log('='.repeat(50))
+  console.log(`To Barber: ${appointment.barber.name}`)
+  console.log(`New Appointment Request:`)
+  console.log(`  Customer: ${appointment.customerName}`)
+  console.log(`  Phone: ${appointment.customerPhone}`)
+  console.log(`  Service: ${appointment.service.name}`)
+  console.log(`  Date/Time: ${format(appointment.startTime, 'PPpp')}`)
+  console.log(`  Status: PENDING - Awaiting confirmation`)
+  console.log('='.repeat(50))
 }
 
-// Admin Action: Update Status
+// ============ ADMIN ACTIONS ============
+
+export async function loginBarber(username: string, password: string) {
+  const user = await prisma.user.findUnique({
+    where: { username },
+    include: { barber: true }
+  })
+
+  if (!user || user.password !== password) {
+    return { success: false, error: 'Invalid credentials' }
+  }
+
+  if (!user.barber) {
+    return { success: false, error: 'No barber profile linked' }
+  }
+
+  // Set session cookie
+  const cookieStore = await cookies()
+  cookieStore.set('barber_session', JSON.stringify({
+    id: user.barber.id,
+    name: user.barber.name,
+    userId: user.id
+  }), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 7 // 1 week
+  })
+
+  return { success: true, barber: user.barber }
+}
+
+export async function logoutBarber() {
+  const cookieStore = await cookies()
+  cookieStore.delete('barber_session')
+  return { success: true }
+}
+
+export async function getCurrentBarber() {
+  const cookieStore = await cookies()
+  const session = cookieStore.get('barber_session')
+
+  if (!session) return null
+
+  try {
+    return JSON.parse(session.value)
+  } catch {
+    return null
+  }
+}
+
+export async function getAppointmentsByBarber(barberId: number) {
+  return await prisma.appointment.findMany({
+    where: { barberId },
+    include: { service: true },
+    orderBy: { startTime: 'asc' }
+  })
+}
+
 export async function updateAppointmentStatus(id: number, status: 'CONFIRMED' | 'DENIED' | 'CANCELLED') {
-    await prisma.appointment.update({
-        where: { id },
-        data: { status }
-    })
-    revalidatePath('/admin')
+  await prisma.appointment.update({
+    where: { id },
+    data: { status }
+  })
+  revalidatePath('/admin')
+}
+
+export async function blockTimeSlot(barberId: number, dateStr: string, startTime: string, endTime: string) {
+  const date = parse(`${dateStr} ${startTime}`, 'yyyy-MM-dd HH:mm', new Date())
+  const endDate = parse(`${dateStr} ${endTime}`, 'yyyy-MM-dd HH:mm', new Date())
+
+  await prisma.appointment.create({
+    data: {
+      barberId,
+      serviceId: 1, // Placeholder
+      startTime: date,
+      endTime: endDate,
+      customerName: 'BLOCKED',
+      customerPhone: '--',
+      status: 'BLOCKED',
+      isPriority: false,
+      totalPrice: 0,
+      notes: 'Blocked by barber'
+    }
+  })
+  revalidatePath('/admin')
+}
+
+export async function blockDate(barberId: number, dateStr: string, reason?: string) {
+  const date = new Date(dateStr)
+
+  await prisma.dateException.create({
+    data: {
+      barberId,
+      date: startOfDay(date),
+      reason: reason || 'Unavailable'
+    }
+  })
+  revalidatePath('/admin')
+}
+
+export async function unblockDate(barberId: number, dateStr: string) {
+  const date = new Date(dateStr)
+
+  await prisma.dateException.deleteMany({
+    where: {
+      barberId,
+      date: {
+        gte: startOfDay(date),
+        lt: endOfDay(date)
+      }
+    }
+  })
+  revalidatePath('/admin')
+}
+
+export async function getBlockedDates(barberId: number) {
+  return await prisma.dateException.findMany({
+    where: { barberId },
+    orderBy: { date: 'asc' }
+  })
+}
+
+export async function updateBarberSchedule(barberId: number, dayOfWeek: number, data: {
+  isWorking: boolean
+  startTime?: string
+  endTime?: string
+}) {
+  await prisma.schedule.upsert({
+    where: { barberId_dayOfWeek: { barberId, dayOfWeek } },
+    update: data,
+    create: {
+      barberId,
+      dayOfWeek,
+      startTime: data.startTime || '10:00',
+      endTime: data.endTime || '17:00',
+      isWorking: data.isWorking
+    }
+  })
+  revalidatePath('/admin')
+}
+
+export async function getBarberSchedule(barberId: number) {
+  return await prisma.schedule.findMany({
+    where: { barberId },
+    orderBy: { dayOfWeek: 'asc' }
+  })
 }

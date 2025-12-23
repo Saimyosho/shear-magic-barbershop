@@ -1,236 +1,340 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getAllAppointments, getSchedules, updateSchedule } from './actions'
-import { updateAppointmentStatus } from '@/app/actions'
-import { format } from 'date-fns'
-import { Lock, LogOut } from 'lucide-react'
+import { motion } from 'framer-motion'
+import {
+  getCurrentBarber,
+  logoutBarber,
+  getAppointmentsByBarber,
+  updateAppointmentStatus,
+  blockDate,
+  getBlockedDates,
+  unblockDate
+} from '@/app/actions'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import {
+  Calendar,
+  Check,
+  X,
+  LogOut,
+  Clock,
+  User,
+  Phone,
+  Ban,
+  Trash2
+} from 'lucide-react'
+import { format, isFuture, isToday, addDays } from 'date-fns'
+import { useRouter } from 'next/navigation'
 
-export default function AdminPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [pin, setPin] = useState('')
-  
-  const [appointments, setAppointments] = useState<any[]>([])
-  const [schedules, setSchedules] = useState<any[]>([])
+type Appointment = {
+  id: number
+  startTime: Date
+  endTime: Date
+  customerName: string
+  customerPhone: string
+  customerEmail: string | null
+  status: string
+  isPriority: boolean
+  totalPrice: number
+  service: { name: string; duration: number }
+}
+
+type BlockedDate = {
+  id: number
+  date: Date
+  reason: string | null
+}
+
+export default function AdminDashboard() {
+  const [barber, setBarber] = useState<{ id: number; name: string } | null>(null)
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'appointments' | 'availability'>('appointments')
+  const [blockDateInput, setBlockDateInput] = useState('')
+  const [blockReason, setBlockReason] = useState('')
+  const router = useRouter()
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadData()
-    }
-  }, [isAuthenticated])
+    checkAuth()
+  }, [])
 
-  const loadData = async () => {
-    setLoading(true)
-    const [apptData, schedData] = await Promise.all([
-      getAllAppointments(),
-      getSchedules()
-    ])
-    setAppointments(apptData)
-    setSchedules(schedData)
+  const checkAuth = async () => {
+    const b = await getCurrentBarber()
+    if (!b) {
+      router.push('/admin/login')
+      return
+    }
+    setBarber(b)
+    await loadData(b.id)
     setLoading(false)
   }
 
-  const handleStatusChange = async (id: number, status: 'CONFIRMED' | 'DENIED' | 'CANCELLED') => {
-      // Optimistic Update
-      setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a))
-      await updateAppointmentStatus(id, status)
+  const loadData = async (barberId: number) => {
+    const [appts, blocked] = await Promise.all([
+      getAppointmentsByBarber(barberId),
+      getBlockedDates(barberId)
+    ])
+    setAppointments(appts as any)
+    setBlockedDates(blocked as any)
   }
 
-  if (!isAuthenticated) {
+  const handleLogout = async () => {
+    await logoutBarber()
+    router.push('/admin/login')
+  }
+
+  const handleStatusChange = async (id: number, status: 'CONFIRMED' | 'DENIED' | 'CANCELLED') => {
+    await updateAppointmentStatus(id, status)
+    if (barber) await loadData(barber.id)
+  }
+
+  const handleBlockDate = async () => {
+    if (!barber || !blockDateInput) return
+    await blockDate(barber.id, blockDateInput, blockReason || undefined)
+    setBlockDateInput('')
+    setBlockReason('')
+    await loadData(barber.id)
+  }
+
+  const handleUnblockDate = async (dateStr: string) => {
+    if (!barber) return
+    await unblockDate(barber.id, dateStr)
+    await loadData(barber.id)
+  }
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background relative overflow-hidden">
-        {/* Background elements */}
-        <div className="absolute inset-0 bg-noise opacity-[0.03]"></div>
-        <div className="absolute top-[-20%] right-[-10%] w-[50vw] h-[50vw] bg-accent/5 rounded-full blur-[120px]"></div>
-        
-        <div className="relative z-10 w-full max-w-md p-8 text-center">
-          <div className="flex justify-center mb-8">
-            <div className="h-16 w-16 border border-foreground flex items-center justify-center">
-              <Lock className="text-foreground w-6 h-6" strokeWidth={1} />
-            </div>
-          </div>
-          
-          <h1 className="text-4xl font-serif text-foreground mb-2">Restricted Area</h1>
-          <p className="text-muted-foreground font-mono text-[10px] uppercase tracking-[0.25em] mb-12">
-            Management Protocol Only
-          </p>
-          
-          <div className="space-y-6">
-            <Input 
-              type="password" 
-              className="text-center text-2xl tracking-[1em] py-4 h-16 font-serif"
-              placeholder="••••"
-              value={pin}
-              onChange={e => setPin(e.target.value)}
-            />
-            
-            <Button 
-              onClick={() => {
-                if (pin === '1234') setIsAuthenticated(true)
-                else alert('Access Denied.')
-              }}
-              className="w-full"
-              size="lg"
-            >
-              Authenticate
-            </Button>
-          </div>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     )
   }
 
-  const handleScheduleUpdate = async (id: number, field: string, value: any) => {
-    // Optimistic update
-    const newSchedules = schedules.map(s => s.id === id ? { ...s, [field]: value } : s)
-    setSchedules(newSchedules)
-    
-    // Find the full object to send
-    const target = newSchedules.find(s => s.id === id)
-    if (target) {
-      await updateSchedule(id, {
-        startTime: target.startTime,
-        endTime: target.endTime,
-        isWorking: target.isWorking
-      })
-    }
-  }
-
-  // Group schedules by Barber
-  const schedulesByBarber: Record<string, any[]> = {}
-  schedules.forEach(s => {
-    if (!schedulesByBarber[s.barber.name]) schedulesByBarber[s.barber.name] = []
-    schedulesByBarber[s.barber.name].push(s)
-  })
+  const pendingAppts = appointments.filter(a => a.status === 'PENDING' && (isFuture(new Date(a.startTime)) || isToday(new Date(a.startTime))))
+  const upcomingAppts = appointments.filter(a => a.status === 'CONFIRMED' && (isFuture(new Date(a.startTime)) || isToday(new Date(a.startTime))))
+  const pastAppts = appointments.filter(a => !isFuture(new Date(a.startTime)) && !isToday(new Date(a.startTime)))
 
   return (
-    <div className="min-h-screen bg-background p-8 font-sans relative">
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03] bg-noise"></div>
-      
-      <div className="max-w-[1600px] mx-auto relative z-10">
-        <header className="flex justify-between items-end mb-16 border-b border-foreground/10 pb-8">
-           <div>
-             <span className="text-accent font-mono text-[10px] uppercase tracking-[0.25em] block mb-2">System Control</span>
-             <h1 className="text-5xl font-serif text-foreground">Dashboard</h1>
-           </div>
-           <Button variant="outline" onClick={() => setIsAuthenticated(false)} className="gap-2">
-             <LogOut size={14} />
-             Logout
-           </Button>
-        </header>
-
-        {/* APPOINTMENTS */}
-        <section className="mb-24">
-          <div className="flex items-baseline justify-between mb-8">
-            <h2 className="text-3xl font-serif text-foreground">Upcoming Rituals</h2>
-            <span className="font-mono text-xs text-muted-foreground">{appointments.length} Sessions Active</span>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b border-border p-4">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
+          <div>
+            <h1 className="font-serif text-2xl text-foreground">Barber Portal</h1>
+            <p className="text-muted-foreground text-sm">Welcome, {barber?.name}</p>
           </div>
-          
-          <div className="border-t border-foreground/20">
-            <table className="w-full text-left text-sm">
-              <thead className="text-muted-foreground uppercase font-mono text-[10px] tracking-[0.1em]">
-                <tr>
-                  <th className="py-6 pr-4 font-normal">Date/Time</th>
-                  <th className="py-6 px-4 font-normal">Client</th>
-                  <th className="py-6 px-4 font-normal">Architect</th>
-                  <th className="py-6 px-4 font-normal">Service</th>
-                  <th className="py-6 px-4 font-normal">Status</th>
-                  <th className="py-6 px-4 font-normal">Actions</th>
-                  <th className="py-6 pl-4 font-normal text-right">Price</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-foreground/5">
-                {appointments.slice(0, 10).map(appt => (
-                  <tr key={appt.id} className="group hover:bg-foreground/[0.02] transition-colors">
-                    <td className="py-6 pr-4 font-mono text-foreground font-medium">
-                      {format(new Date(appt.startTime), 'MMM d, h:mm a')}
-                    </td>
-                    <td className="py-6 px-4">
-                      <div className="font-serif text-lg text-foreground">{appt.customerName}</div>
-                      <div className="text-muted-foreground font-mono text-[10px] tracking-wide">{appt.customerPhone}</div>
-                    </td>
-                    <td className="py-6 px-4 font-sans text-sm text-foreground/80">{appt.barber.name}</td>
-                    <td className="py-6 px-4 font-sans text-sm text-foreground/80">{appt.service.name}</td>
-                    <td className="py-6 px-4">
-                      <span className={`inline-flex items-center px-2 py-1 text-[10px] uppercase tracking-widest border ${appt.status === 'PENDING' ? 'border-amber-200 text-amber-700 bg-amber-50' : appt.status === 'CONFIRMED' ? 'border-emerald-200 text-emerald-700 bg-emerald-50' : 'border-red-200 text-red-700 bg-red-50'}`}>
-                        {appt.status} {appt.isPriority && ' // OVERRIDE'}
-                      </span>
-                    </td>
-                    <td className="py-6 px-4 flex gap-2">
-                        {appt.status === 'PENDING' && (
-                            <>
-                                <Button size="sm" onClick={() => handleStatusChange(appt.id, 'CONFIRMED')} className="bg-emerald-600 hover:bg-emerald-700 h-8 text-[10px]">Accept</Button>
-                                <Button size="sm" variant="outline" onClick={() => handleStatusChange(appt.id, 'DENIED')} className="text-red-600 hover:bg-red-50 h-8 text-[10px]">Deny</Button>
-                            </>
-                        )}
-                        {appt.status === 'CONFIRMED' && (
-                             <Button size="sm" variant="ghost" onClick={() => handleStatusChange(appt.id, 'CANCELLED')} className="text-muted-foreground hover:text-red-600 h-8 text-[10px]">Cancel</Button>
-                        )}
-                    </td>
-                    <td className="py-6 pl-4 font-mono text-foreground text-right">${appt.totalPrice}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {appointments.length === 0 && <p className="py-12 text-center text-muted-foreground font-mono text-xs uppercase tracking-widest">No active sessions.</p>}
-          </div>
-        </section>
+          <Button variant="outline" onClick={handleLogout} className="gap-2">
+            <LogOut className="w-4 h-4" /> Sign Out
+          </Button>
+        </div>
+      </header>
 
-        {/* SCHEDULES */}
-        <section>
-          <h2 className="text-3xl font-serif text-foreground mb-12">Temporal Configuration</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-            {Object.keys(schedulesByBarber).map(barberName => (
-              <div key={barberName} className="space-y-6">
-                <h3 className="text-sm font-mono uppercase tracking-[0.2em] border-b border-foreground pb-4">{barberName}</h3>
-                <div className="space-y-4">
-                  {schedulesByBarber[barberName].map(s => (
-                    <div key={s.id} className={`group flex items-center justify-between p-4 border transition-all duration-300 ${s.isWorking ? 'border-foreground/10 bg-white' : 'border-transparent bg-foreground/[0.03] opacity-60'}`}>
-                      <div className="flex items-center gap-4">
-                        <input 
-                          type="checkbox" 
-                          checked={s.isWorking} 
-                          onChange={e => handleScheduleUpdate(s.id, 'isWorking', e.target.checked)}
-                          className="w-4 h-4 accent-foreground border-gray-300 rounded-none cursor-pointer"
-                        />
-                        <span className="font-serif text-lg text-foreground">
-                          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][s.dayOfWeek]}
-                        </span>
+      <main className="max-w-5xl mx-auto p-6">
+        {/* Tabs */}
+        <div className="flex gap-4 mb-8 border-b border-border">
+          <button
+            onClick={() => setActiveTab('appointments')}
+            className={`pb-4 px-2 text-sm font-medium transition-colors ${activeTab === 'appointments'
+                ? 'text-accent border-b-2 border-accent'
+                : 'text-muted-foreground hover:text-foreground'
+              }`}
+          >
+            Appointments
+          </button>
+          <button
+            onClick={() => setActiveTab('availability')}
+            className={`pb-4 px-2 text-sm font-medium transition-colors ${activeTab === 'availability'
+                ? 'text-accent border-b-2 border-accent'
+                : 'text-muted-foreground hover:text-foreground'
+              }`}
+          >
+            Availability
+          </button>
+        </div>
+
+        {/* Appointments Tab */}
+        {activeTab === 'appointments' && (
+          <div className="space-y-8">
+            {/* Pending */}
+            {pendingAppts.length > 0 && (
+              <section>
+                <h2 className="text-lg font-medium text-foreground mb-4 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-yellow-500" />
+                  Pending Requests ({pendingAppts.length})
+                </h2>
+                <div className="space-y-3">
+                  {pendingAppts.map(appt => (
+                    <AppointmentCard
+                      key={appt.id}
+                      appointment={appt}
+                      onConfirm={() => handleStatusChange(appt.id, 'CONFIRMED')}
+                      onDeny={() => handleStatusChange(appt.id, 'DENIED')}
+                      showActions
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Upcoming */}
+            <section>
+              <h2 className="text-lg font-medium text-foreground mb-4 flex items-center gap-2">
+                <Check className="w-5 h-5 text-green-500" />
+                Upcoming ({upcomingAppts.length})
+              </h2>
+              {upcomingAppts.length === 0 ? (
+                <p className="text-muted-foreground">No upcoming confirmed appointments.</p>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingAppts.map(appt => (
+                    <AppointmentCard
+                      key={appt.id}
+                      appointment={appt}
+                      onCancel={() => handleStatusChange(appt.id, 'CANCELLED')}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
+        {/* Availability Tab */}
+        {activeTab === 'availability' && (
+          <div className="space-y-8">
+            {/* Block Date */}
+            <section>
+              <h2 className="text-lg font-medium text-foreground mb-4 flex items-center gap-2">
+                <Ban className="w-5 h-5 text-red-500" /> Block a Day Off
+              </h2>
+              <div className="p-4 bg-surface border border-border rounded-sm space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Date</label>
+                    <input
+                      type="date"
+                      value={blockDateInput}
+                      onChange={e => setBlockDateInput(e.target.value)}
+                      min={format(new Date(), 'yyyy-MM-dd')}
+                      className="w-full p-2 bg-background border border-border rounded-sm text-foreground"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Reason (optional)</label>
+                    <input
+                      type="text"
+                      value={blockReason}
+                      onChange={e => setBlockReason(e.target.value)}
+                      placeholder="e.g., Vacation"
+                      className="w-full p-2 bg-background border border-border rounded-sm text-foreground placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button onClick={handleBlockDate} disabled={!blockDateInput} className="bg-accent text-background hover:bg-accent/90">
+                      Block Day
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Blocked Dates List */}
+            <section>
+              <h2 className="text-lg font-medium text-foreground mb-4">Blocked Dates</h2>
+              {blockedDates.length === 0 ? (
+                <p className="text-muted-foreground">No blocked dates.</p>
+              ) : (
+                <div className="space-y-2">
+                  {blockedDates.map(bd => (
+                    <div key={bd.id} className="flex justify-between items-center p-3 bg-surface border border-border rounded-sm">
+                      <div>
+                        <span className="text-foreground">{format(new Date(bd.date), 'EEEE, MMMM d, yyyy')}</span>
+                        {bd.reason && <span className="text-muted-foreground ml-2">— {bd.reason}</span>}
                       </div>
-                      
-                      {s.isWorking ? (
-                        <div className="flex items-center gap-2 font-mono text-xs">
-                          <input 
-                            type="time" 
-                            value={s.startTime} 
-                            onChange={e => handleScheduleUpdate(s.id, 'startTime', e.target.value)}
-                            className="bg-transparent border-b border-foreground/20 text-foreground w-16 text-center focus:border-accent outline-none transition-colors"
-                          />
-                          <span className="text-muted-foreground">-</span>
-                          <input 
-                            type="time" 
-                            value={s.endTime} 
-                            onChange={e => handleScheduleUpdate(s.id, 'endTime', e.target.value)}
-                            className="bg-transparent border-b border-foreground/20 text-foreground w-16 text-center focus:border-accent outline-none transition-colors"
-                          />
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground font-mono text-[10px] uppercase tracking-widest">
-                          Closed
-                        </span>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUnblockDate(format(new Date(bd.date), 'yyyy-MM-dd'))}
+                        className="gap-1"
+                      >
+                        <Trash2 className="w-4 h-4" /> Remove
+                      </Button>
                     </div>
                   ))}
                 </div>
-              </div>
-            ))}
+              )}
+            </section>
           </div>
-        </section>
-      </div>
+        )}
+      </main>
     </div>
+  )
+}
+
+function AppointmentCard({
+  appointment,
+  showActions = false,
+  onConfirm,
+  onDeny,
+  onCancel
+}: {
+  appointment: Appointment
+  showActions?: boolean
+  onConfirm?: () => void
+  onDeny?: () => void
+  onCancel?: () => void
+}) {
+  const statusColors: Record<string, string> = {
+    PENDING: 'bg-yellow-500/20 text-yellow-500',
+    CONFIRMED: 'bg-green-500/20 text-green-500',
+    CANCELLED: 'bg-red-500/20 text-red-500',
+    DENIED: 'bg-red-500/20 text-red-500',
+    BLOCKED: 'bg-gray-500/20 text-gray-500'
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="p-4 bg-surface border border-border rounded-sm"
+    >
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <p className="text-foreground font-medium">{appointment.service.name}</p>
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            {format(new Date(appointment.startTime), 'EEE, MMM d')} at {format(new Date(appointment.startTime), 'h:mm a')}
+          </p>
+        </div>
+        <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[appointment.status] || ''}`}>
+          {appointment.status}
+        </span>
+      </div>
+
+      <div className="flex gap-4 text-sm text-muted-foreground mb-3">
+        <span className="flex items-center gap-1"><User className="w-4 h-4" /> {appointment.customerName}</span>
+        <span className="flex items-center gap-1"><Phone className="w-4 h-4" /> {appointment.customerPhone}</span>
+      </div>
+
+      {showActions && (
+        <div className="flex gap-2 pt-3 border-t border-border">
+          <Button size="sm" onClick={onConfirm} className="bg-green-600 hover:bg-green-700 text-white gap-1">
+            <Check className="w-4 h-4" /> Confirm
+          </Button>
+          <Button size="sm" variant="outline" onClick={onDeny} className="text-red-500 border-red-500/50 hover:bg-red-500/10 gap-1">
+            <X className="w-4 h-4" /> Deny
+          </Button>
+        </div>
+      )}
+
+      {onCancel && appointment.status === 'CONFIRMED' && (
+        <div className="pt-3 border-t border-border">
+          <Button size="sm" variant="outline" onClick={onCancel} className="text-muted-foreground gap-1">
+            Cancel Appointment
+          </Button>
+        </div>
+      )}
+    </motion.div>
   )
 }

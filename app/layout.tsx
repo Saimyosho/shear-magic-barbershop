@@ -3,6 +3,8 @@ import { Playfair_Display, Inter } from "next/font/google";
 import { GeistMono } from 'geist/font/mono';
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import Header from "@/components/header";
+import SmoothScrollProvider from "@/components/smooth-scroll-provider";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -38,18 +40,10 @@ export default function RootLayout({
           "bg-background text-foreground overflow-x-hidden selection:bg-accent selection:text-white font-sans"
         )}
       >
-         {/* The Atmospheric Noise Layer - Subtle texture */}
-         <div className="fixed inset-0 pointer-events-none z-[100] opacity-[0.03] bg-noise mix-blend-multiply"></div>
-        
-         {/* Visible Grid Lines - Editorial Structure */}
-         <div className="fixed inset-0 pointer-events-none z-[0] flex justify-between max-w-[1600px] mx-auto px-8 md:px-16 opacity-10">
-            <div className="w-px h-full bg-foreground"></div>
-            <div className="w-px h-full bg-foreground hidden md:block"></div>
-            <div className="w-px h-full bg-foreground hidden md:block"></div>
-            <div className="w-px h-full bg-foreground"></div>
-         </div>
-
-        {children}
+        <Header />
+        <SmoothScrollProvider>
+          {children}
+        </SmoothScrollProvider>
       </body>
     </html>
   );
