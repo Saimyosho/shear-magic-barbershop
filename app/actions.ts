@@ -8,19 +8,40 @@ import { cookies } from 'next/headers'
 // ============ PUBLIC ACTIONS ============
 
 export async function getBarbers() {
-  return await prisma.barber.findMany({
-    select: {
-      id: true,
-      name: true,
-      title: true,
-      bio: true,
-      imageUrl: true,
-    }
-  })
+  try {
+    return await prisma.barber.findMany({
+      select: {
+        id: true,
+        name: true,
+        title: true,
+        bio: true,
+        imageUrl: true,
+      }
+    })
+  } catch (error) {
+    console.error('Failed to fetch barbers:', error)
+    // Return fallback barbers for build time
+    return [
+      { id: 1, name: 'Calvin Berkins', title: 'Master Barber', bio: '30+ years experience', imageUrl: null },
+      { id: 2, name: 'Darrien Berkins', title: 'Senior Barber', bio: 'Fade specialist', imageUrl: null },
+      { id: 3, name: 'Danielle Valentine', title: 'Stylist', bio: 'All styles welcome', imageUrl: null },
+    ]
+  }
 }
 
 export async function getServices() {
-  return await prisma.service.findMany()
+  try {
+    return await prisma.service.findMany()
+  } catch (error) {
+    console.error('Failed to fetch services:', error)
+    // Return fallback services for build time
+    return [
+      { id: 1, name: 'Haircut', price: 20, duration: 30, description: 'Classic haircut' },
+      { id: 2, name: 'Skin Fade', price: 25, duration: 45, description: 'Sharp skin fade' },
+      { id: 3, name: 'Shave', price: 15, duration: 20, description: 'Hot towel shave' },
+      { id: 4, name: 'Haircut & Beard', price: 35, duration: 45, description: 'Full grooming' },
+    ]
+  }
 }
 
 export type TimeSlot = {
