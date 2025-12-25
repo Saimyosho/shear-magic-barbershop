@@ -161,7 +161,7 @@ export default function HeroSection() {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 1.2 }}
-            className="absolute -bottom-6 -left-6 bg-background/90 backdrop-blur-md border border-border p-5"
+            className="absolute -bottom-6 -left-3 bg-background/90 backdrop-blur-md border border-border p-5"
           >
             <span className="block text-3xl font-serif text-accent">30+</span>
             <span className="text-xs uppercase tracking-widest text-muted-foreground">Years</span>
