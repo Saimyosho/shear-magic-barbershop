@@ -9,8 +9,27 @@ import {
   updateAppointmentStatus,
   blockDate,
   getBlockedDates,
-  unblockDate
+  unblockDate,
+  blockTimeSlot
 } from '@/app/actions'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose
+} from '@/components/ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar as CalendarPicker } from '@/components/ui/calendar'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import {
   Calendar,
@@ -21,7 +40,8 @@ import {
   User,
   Phone,
   Ban,
-  Trash2
+  Trash2,
+  ClipboardX
 } from 'lucide-react'
 import { format, isFuture, isToday, addDays } from 'date-fns'
 import { useRouter } from 'next/navigation'
@@ -53,6 +73,11 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'appointments' | 'availability'>('appointments')
   const [blockDateInput, setBlockDateInput] = useState('')
   const [blockReason, setBlockReason] = useState('')
+  // Block time slot state
+  const [blockTimeDialogOpen, setBlockTimeDialogOpen] = useState(false)
+  const [blockSlotDate, setBlockSlotDate] = useState<Date | undefined>(undefined)
+  const [blockStartTime, setBlockStartTime] = useState('')
+  const [blockEndTime, setBlockEndTime] = useState('')
   const router = useRouter()
 
   useEffect(() => {
@@ -103,6 +128,24 @@ export default function AdminDashboard() {
     await loadData(barber.id)
   }
 
+  const handleBlockTimeSlot = async () => {
+    if (!barber || !blockSlotDate || !blockStartTime || !blockEndTime) return
+    const dateStr = format(blockSlotDate, 'yyyy-MM-dd')
+    await blockTimeSlot(barber.id, dateStr, blockStartTime, blockEndTime)
+    setBlockTimeDialogOpen(false)
+    setBlockSlotDate(undefined)
+    setBlockStartTime('')
+    setBlockEndTime('')
+    await loadData(barber.id)
+  }
+
+  // Generate time options for select dropdowns
+  const timeOptions = Array.from({ length: 19 }, (_, i) => {
+    const hour = Math.floor(i / 2) + 9 // Start at 9 AM
+    const minute = (i % 2) * 30
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+  })
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -113,6 +156,7 @@ export default function AdminDashboard() {
 
   const pendingAppts = appointments.filter(a => a.status === 'PENDING' && (isFuture(new Date(a.startTime)) || isToday(new Date(a.startTime))))
   const upcomingAppts = appointments.filter(a => a.status === 'CONFIRMED' && (isFuture(new Date(a.startTime)) || isToday(new Date(a.startTime))))
+  const blockedSlots = appointments.filter(a => a.status === 'BLOCKED' && (isFuture(new Date(a.startTime)) || isToday(new Date(a.startTime))))
   const pastAppts = appointments.filter(a => !isFuture(new Date(a.startTime)) && !isToday(new Date(a.startTime)))
 
   return (
@@ -136,8 +180,8 @@ export default function AdminDashboard() {
           <button
             onClick={() => setActiveTab('appointments')}
             className={`pb-4 px-2 text-sm font-medium transition-colors ${activeTab === 'appointments'
-                ? 'text-accent border-b-2 border-accent'
-                : 'text-muted-foreground hover:text-foreground'
+              ? 'text-accent border-b-2 border-accent'
+              : 'text-muted-foreground hover:text-foreground'
               }`}
           >
             Appointments
@@ -145,8 +189,8 @@ export default function AdminDashboard() {
           <button
             onClick={() => setActiveTab('availability')}
             className={`pb-4 px-2 text-sm font-medium transition-colors ${activeTab === 'availability'
-                ? 'text-accent border-b-2 border-accent'
-                : 'text-muted-foreground hover:text-foreground'
+              ? 'text-accent border-b-2 border-accent'
+              : 'text-muted-foreground hover:text-foreground'
               }`}
           >
             Availability
@@ -197,6 +241,24 @@ export default function AdminDashboard() {
                 </div>
               )}
             </section>
+
+            {/* Blocked Slots */}
+            {blockedSlots.length > 0 && (
+              <section>
+                <h2 className="text-lg font-medium text-foreground mb-4 flex items-center gap-2">
+                  <ClipboardX className="w-5 h-5 text-gray-500" />
+                  Blocked Slots ({blockedSlots.length})
+                </h2>
+                <div className="space-y-3">
+                  {blockedSlots.map(appt => (
+                    <AppointmentCard
+                      key={appt.id}
+                      appointment={appt}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
 
@@ -236,6 +298,92 @@ export default function AdminDashboard() {
                     </Button>
                   </div>
                 </div>
+              </div>
+            </section>
+
+            {/* Block Time Slot */}
+            <section>
+              <h2 className="text-lg font-medium text-foreground mb-4 flex items-center gap-2">
+                <ClipboardX className="w-5 h-5 text-orange-500" /> Block Time Slot
+              </h2>
+              <div className="p-4 bg-surface border border-border rounded-sm">
+                <Dialog open={blockTimeDialogOpen} onOpenChange={setBlockTimeDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-orange-600 hover:bg-orange-700 text-white gap-2">
+                      <ClipboardX className="w-4 h-4" /> Block Time Slot
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-background border-border">
+                    <DialogHeader>
+                      <DialogTitle className="text-foreground">Block Time Slot</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div>
+                        <label className="text-sm text-muted-foreground mb-2 block">Select Date</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start text-left font-normal">
+                              <Calendar className="mr-2 h-4 w-4" />
+                              {blockSlotDate ? format(blockSlotDate, 'PPP') : 'Pick a date'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 bg-background border-border" align="start">
+                            <CalendarPicker
+                              mode="single"
+                              selected={blockSlotDate}
+                              onSelect={setBlockSlotDate}
+                              disabled={(date) => date < new Date()}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm text-muted-foreground mb-2 block">Start Time</label>
+                          <Select value={blockStartTime} onValueChange={setBlockStartTime}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Start" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background border-border">
+                              {timeOptions.map(time => (
+                                <SelectItem key={time} value={time}>{time}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <label className="text-sm text-muted-foreground mb-2 block">End Time</label>
+                          <Select value={blockEndTime} onValueChange={setBlockEndTime}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="End" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background border-border">
+                              {timeOptions.map(time => (
+                                <SelectItem key={time} value={time}>{time}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <DialogClose asChild>
+                        <Button variant="outline">Cancel</Button>
+                      </DialogClose>
+                      <Button
+                        onClick={handleBlockTimeSlot}
+                        disabled={!blockSlotDate || !blockStartTime || !blockEndTime}
+                        className="bg-orange-600 hover:bg-orange-700 text-white"
+                      >
+                        Block Slot
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Block specific time slots to make them unavailable for booking.
+                </p>
               </div>
             </section>
 

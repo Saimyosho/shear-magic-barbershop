@@ -86,7 +86,7 @@ export async function getAvailability(barberId: number, dateStr: string): Promis
         gte: startOfDay(date),
         lt: endOfDay(date),
       },
-      status: { notIn: ['CANCELLED', 'DENIED'] },
+      status: { notIn: ['CANCELLED', 'DENIED', 'BLOCKED'] },
     },
   })
 

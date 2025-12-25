@@ -55,7 +55,7 @@ export default function ContactSection() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-24"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
         >
           {contactInfo.map((item, i) => (
             <motion.div
@@ -76,6 +76,33 @@ export default function ContactSection() {
               </div>
             </motion.div>
           ))}
+        </motion.div>
+
+        {/* Google Maps */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+          className="mb-24"
+        >
+          <h3 className="text-lg font-medium text-foreground mb-4 text-center">Find Us</h3>
+          <div className="relative w-full h-64 md:h-80 rounded-sm overflow-hidden border border-border">
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3024.847!2d-78.9215!3d40.3267!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89cb53f3f07a2f1b%3A0x7b9c6c6e8f8c8e8!2s225%20Market%20St%2C%20Johnstown%2C%20PA%2015901!5e0!3m2!1sen!2sus!4v1703451000000!5m2!1sen!2sus"
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Shear Magic Barbershop Location"
+              className="grayscale hover:grayscale-0 transition-all duration-500"
+            />
+          </div>
+          <p className="text-center text-muted-foreground text-sm mt-3">
+            225 Market ST, Johnstown, PA 15901
+          </p>
         </motion.div>
 
         {/* CTA */}
