@@ -260,6 +260,16 @@ export async function blockTimeSlot(barberId: number, dateStr: string, startTime
   revalidatePath('/admin')
 }
 
+export async function deleteBlockedSlot(appointmentId: number) {
+  await prisma.appointment.delete({
+    where: {
+      id: appointmentId,
+      status: 'BLOCKED'
+    }
+  })
+  revalidatePath('/admin')
+}
+
 export async function blockDate(barberId: number, dateStr: string, reason?: string) {
   const date = new Date(dateStr)
 

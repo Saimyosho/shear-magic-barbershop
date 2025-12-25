@@ -174,7 +174,7 @@ export default function HeroSection() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 2, duration: 1 }}
-        className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-50"
+        className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-[60] bg-background/80 backdrop-blur-sm px-4 py-2 rounded-full"
       >
         <span className="text-xs uppercase tracking-widest text-muted-foreground">Scroll</span>
         <motion.div

@@ -10,7 +10,8 @@ import {
   blockDate,
   getBlockedDates,
   unblockDate,
-  blockTimeSlot
+  blockTimeSlot,
+  deleteBlockedSlot
 } from '@/app/actions'
 import {
   Dialog,
@@ -139,6 +140,12 @@ export default function AdminDashboard() {
     await loadData(barber.id)
   }
 
+  const handleDeleteBlockedSlot = async (appointmentId: number) => {
+    if (!barber) return
+    await deleteBlockedSlot(appointmentId)
+    await loadData(barber.id)
+  }
+
   // Generate time options for select dropdowns
   const timeOptions = Array.from({ length: 19 }, (_, i) => {
     const hour = Math.floor(i / 2) + 9 // Start at 9 AM
@@ -160,40 +167,43 @@ export default function AdminDashboard() {
   const pastAppts = appointments.filter(a => !isFuture(new Date(a.startTime)) && !isToday(new Date(a.startTime)))
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
       {/* Header */}
-      <header className="border-b border-border p-4">
+      <header className="border-b border-border p-4 sticky top-0 bg-background/95 backdrop-blur-sm z-40">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <div>
-            <h1 className="font-serif text-2xl text-foreground">Barber Portal</h1>
-            <p className="text-muted-foreground text-sm">Welcome, {barber?.name}</p>
+            <h1 className="font-serif text-xl md:text-2xl text-foreground">Barber Portal</h1>
+            <p className="text-muted-foreground text-xs md:text-sm">Welcome, {barber?.name}</p>
           </div>
-          <Button variant="outline" onClick={handleLogout} className="gap-2">
-            <LogOut className="w-4 h-4" /> Sign Out
+          <Button variant="outline" onClick={handleLogout} className="gap-2 min-h-[44px]">
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Sign Out</span>
           </Button>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto p-6">
+      <main className="max-w-5xl mx-auto p-4 md:p-6">
         {/* Tabs */}
-        <div className="flex gap-4 mb-8 border-b border-border">
+        <div className="flex gap-2 md:gap-4 mb-6 md:mb-8 border-b border-border">
           <button
             onClick={() => setActiveTab('appointments')}
-            className={`pb-4 px-2 text-sm font-medium transition-colors ${activeTab === 'appointments'
+            className={`flex-1 md:flex-initial py-3 md:pb-4 px-3 md:px-4 text-sm font-medium transition-colors min-h-[48px] flex items-center justify-center gap-2 ${activeTab === 'appointments'
               ? 'text-accent border-b-2 border-accent'
               : 'text-muted-foreground hover:text-foreground'
               }`}
           >
-            Appointments
+            <Calendar className="w-4 h-4" />
+            <span>Appointments</span>
           </button>
           <button
             onClick={() => setActiveTab('availability')}
-            className={`pb-4 px-2 text-sm font-medium transition-colors ${activeTab === 'availability'
+            className={`flex-1 md:flex-initial py-3 md:pb-4 px-3 md:px-4 text-sm font-medium transition-colors min-h-[48px] flex items-center justify-center gap-2 ${activeTab === 'availability'
               ? 'text-accent border-b-2 border-accent'
               : 'text-muted-foreground hover:text-foreground'
               }`}
           >
-            Availability
+            <Clock className="w-4 h-4" />
+            <span>Availability</span>
           </button>
         </div>
 
@@ -254,6 +264,7 @@ export default function AdminDashboard() {
                     <AppointmentCard
                       key={appt.id}
                       appointment={appt}
+                      onDelete={() => handleDeleteBlockedSlot(appt.id)}
                     />
                   ))}
                 </div>
@@ -425,13 +436,15 @@ function AppointmentCard({
   showActions = false,
   onConfirm,
   onDeny,
-  onCancel
+  onCancel,
+  onDelete
 }: {
   appointment: Appointment
   showActions?: boolean
   onConfirm?: () => void
   onDeny?: () => void
   onCancel?: () => void
+  onDelete?: () => void
 }) {
   const statusColors: Record<string, string> = {
     PENDING: 'bg-yellow-500/20 text-yellow-500',
@@ -447,7 +460,7 @@ function AppointmentCard({
       animate={{ opacity: 1, y: 0 }}
       className="p-4 bg-surface border border-border rounded-sm"
     >
-      <div className="flex justify-between items-start mb-3">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
         <div>
           <p className="text-foreground font-medium">{appointment.service.name}</p>
           <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -460,17 +473,19 @@ function AppointmentCard({
         </span>
       </div>
 
-      <div className="flex gap-4 text-sm text-muted-foreground mb-3">
+      <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mb-3">
         <span className="flex items-center gap-1"><User className="w-4 h-4" /> {appointment.customerName}</span>
-        <span className="flex items-center gap-1"><Phone className="w-4 h-4" /> {appointment.customerPhone}</span>
+        {appointment.customerPhone !== '--' && (
+          <span className="flex items-center gap-1"><Phone className="w-4 h-4" /> {appointment.customerPhone}</span>
+        )}
       </div>
 
       {showActions && (
-        <div className="flex gap-2 pt-3 border-t border-border">
-          <Button size="sm" onClick={onConfirm} className="bg-green-600 hover:bg-green-700 text-white gap-1">
+        <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
+          <Button size="sm" onClick={onConfirm} className="bg-green-600 hover:bg-green-700 text-white gap-1 min-h-[44px] px-4">
             <Check className="w-4 h-4" /> Confirm
           </Button>
-          <Button size="sm" variant="outline" onClick={onDeny} className="text-red-500 border-red-500/50 hover:bg-red-500/10 gap-1">
+          <Button size="sm" variant="outline" onClick={onDeny} className="text-red-500 border-red-500/50 hover:bg-red-500/10 gap-1 min-h-[44px] px-4">
             <X className="w-4 h-4" /> Deny
           </Button>
         </div>
@@ -478,8 +493,16 @@ function AppointmentCard({
 
       {onCancel && appointment.status === 'CONFIRMED' && (
         <div className="pt-3 border-t border-border">
-          <Button size="sm" variant="outline" onClick={onCancel} className="text-muted-foreground gap-1">
+          <Button size="sm" variant="outline" onClick={onCancel} className="text-muted-foreground gap-1 min-h-[44px]">
             Cancel Appointment
+          </Button>
+        </div>
+      )}
+
+      {onDelete && appointment.status === 'BLOCKED' && (
+        <div className="pt-3 border-t border-border">
+          <Button size="sm" variant="outline" onClick={onDelete} className="text-red-500 border-red-500/30 hover:bg-red-500/10 gap-1 min-h-[44px]">
+            <Trash2 className="w-4 h-4" /> Remove Block
           </Button>
         </div>
       )}
